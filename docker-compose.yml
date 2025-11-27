@@ -1,5 +1,20 @@
 services:
-  # Product Service (MySQL)
+  main-app:
+    build:
+      context: ./main-app
+      dockerfile: Dockerfile
+    ports:
+      - "3005:3005"
+    depends_on:
+      - product-service
+      - cart-service
+      - review-service
+    environment:
+      HOSTNAME: main-app
+
+  # ==============================
+  # PRODUCT SERVICE
+  # ==============================
   product-service:
     build:
       context: ./product-service
@@ -7,36 +22,37 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DB_HOST=product-db
-      - DB_USER=root
-      - DB_PASSWORD=Dev@root23
-      - DB_NAME=productdb
+      DB_HOST: product-db
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: productdb
     depends_on:
       - product-db
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "--host=product-db", "--user=root", "--password=Dev@root23"]
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:3000 || exit 1"]
       interval: 10s
+      timeout: 5s
       retries: 5
       start_period: 30s
-      timeout: 5s
 
   product-db:
     image: mysql:8.0
+    restart: always
     environment:
-      - DB_HOST=product-db
-      - DB_USER=root
-      - DB_PASSWORD=Dev@root23
-      - DB_NAME=productdb
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: productdb
     volumes:
       - product-db-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "--host=localhost", "--user=root", "--password=Dev@root23"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
       interval: 10s
+      timeout: 5s
       retries: 5
       start_period: 30s
-      timeout: 5s
 
-  # Cart Service (PostgreSQL)
+  # ==============================
+  # CART SERVICE
+  # ==============================
   cart-service:
     build:
       context: ./cart-service
@@ -44,56 +60,60 @@ services:
     ports:
       - "3002:3002"
     environment:
-      - DB_HOST=cart-db
-      - DB_USER=postgres
-      - DB_PASSWORD=Dev@root23
-      - DB_NAME=cartdb
-      - APP_ENV=docker
+      DB_CONNECTION: pgsql
+      DB_HOST: cart-db
+      DB_PORT: 5432
+      DB_DATABASE: cartdb
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      APP_ENV: docker
     depends_on:
       - cart-db
+    restart: always
     healthcheck:
-      test: ["CMD", "pg_isready", "--host=cart-db", "--username=postgres", "--dbname=cartdb"]
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:3002 || exit 1"]
       interval: 10s
+      timeout: 5s
       retries: 5
       start_period: 30s
-      timeout: 5s
-    command: bash -c "php artisan migrate && php -S 0.0.0.0:3002 -t public"
+    command: bash -c "php artisan migrate --force && php -S 0.0.0.0:3002 -t public"
 
   cart-db:
     image: postgres:13
+    restart: always
     environment:
-      POSTGRES_USER: postgres  
-      POSTGRES_PASSWORD: Dev@root23
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: cartdb
     volumes:
       - cart-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "--host=localhost", "--username=postgres", "--dbname=cartdb"]
+      test: ["CMD", "pg_isready", "--host=cart-db", "--username=postgres", "--dbname=cartdb"]
       interval: 10s
+      timeout: 5s
       retries: 5
       start_period: 30s
-      timeout: 5s
-  
+
   review-service:
     build:
-      context: ./review-service  
+      context: ./review-service
       dockerfile: Dockerfile
     ports:
       - "3003:3003"
     environment:
-      - MONGO_USER=root
-      - MONGO_PASSWORD=Dev@root23
-      - MONGO_HOST=review-db
+      MONGO_USER: root
+      MONGO_PASSWORD: "Dev@root23"
+      MONGO_HOST: review-db
+      PRODUCT_SERVICE_URL: "http://product-service:3000/products"
     depends_on:
       - review-db
     healthcheck:
       test: ["CMD", "mongo", "--eval", "db.stats()"]
       interval: 10s
+      timeout: 5s
       retries: 5
       start_period: 30s
-      timeout: 5s
-    
-  
+
   review-db:
     image: mongo:6.0
     container_name: review-db
@@ -101,12 +121,50 @@ services:
       - "27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: Dev@root23
+      MONGO_INITDB_ROOT_PASSWORD: "Dev@root23"
     volumes:
       - review-db-data:/data/db
 
+  # ==============================
+  # USER SERVICE
+  # ==============================
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      DB_HOST: user-db
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: userdb
+    depends_on:
+      - user-db
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:4000 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  user-db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: userdb
+    volumes:
+      - user-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 volumes:
   product-db-data:
   cart-db-data:
   review-db-data:
+  user-db-data:

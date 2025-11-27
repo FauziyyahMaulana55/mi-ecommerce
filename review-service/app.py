@@ -13,7 +13,7 @@ password = os.getenv('MONGO_PASSWORD', 'Dev@root23')
 encoding_username = quote_plus(username)
 encoding_password = quote_plus(password)
 
-mongo_host = os.getenv("MONGO_HOST", "localhost" if os.getenv("HOSTNAME") is None else "review-db") 
+mongo_host = os.getenv("MONGO_HOST", "localhost" if os.getenv("HOSTNAME") is None else "review-db")
 mongo_port = os.getenv("MONGO_PORT", 27017)
 mongo_db = os.getenv("MONGO_DB", "reviewdb")
 mongo_auth_source = os.getenv("MONGO_AUTH_SOURCE", "admin")
@@ -21,7 +21,7 @@ mongo_auth_source = os.getenv("MONGO_AUTH_SOURCE", "admin")
 MONGO_URL = f"mongodb://{encoding_username}:{encoding_password}@{mongo_host}:{mongo_port}/{mongo_db}?authSource={mongo_auth_source}"
 
 client = MongoClient(MONGO_URL)
-db = client["review-db"]
+db = client[mongo_db] 
 reviews_collection = db['reviews']
 
 product_service_host = "localhost" if os.getenv("HOSTNAME") is None else "product-service"
@@ -107,6 +107,5 @@ def delete_review(review_id):
     return jsonify({"message": "Review deleted"}), 200
 
 
-# Jalankan Flask di paling bawah
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=3003, debug=True)
